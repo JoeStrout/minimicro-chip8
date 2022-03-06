@@ -36,6 +36,7 @@ mnMap["8"] = function(X, Y, Z)
 	if Z == "6" then return "VX >>= 1"
 	if Z == "7" then return "VX = VY - VX"
 	if Z == "E" then return "VX <<= 1"	
+	return "?!? 8XYZ"
 end function
 mnMap["9"] = "skip if VX != VY"
 mnMap["A"] = "I = XYZ"
@@ -46,6 +47,7 @@ mnMap["E"] = function(X, Y, Z)
 	yz = Y + Z
 	if yz == "9E" then return "skip if key VX pressed"
 	if yz == "A1" then return "skip if key VX not pressed"
+	return "?!? EXYZ"
 end function
 mnMap["F"] = function(X, Y, Z)
 	yz = Y + Z
@@ -57,7 +59,8 @@ mnMap["F"] = function(X, Y, Z)
 	if yz == "29" then return "I = sprite_addr[VX]"
 	if yz == "33" then return "store BCD(VX) at I"
 	if yz == "55" then return "reg_save V0-VX at I"
-	if yz == "65" then return "reg_load V0-VX from I"	
+	if yz == "65" then return "reg_load V0-VX from I"
+	return "?!? FXYZ"
 end function
 
 mnemonic = function(byte0, byte1)
