@@ -2,15 +2,23 @@
 
 import "qa"
 import "disassem"
+import "chars"
 mnemonic = @disassem.mnemonic
 clear
 
 // Load the CHIP-8 program data
-data = file.loadRaw("samples/tank.ch8")
-//data = file.loadRaw("samples/movingGuy.ch8")
-//data = file.loadRaw("samples/Keyboard.ch8")
+oldDir = file.curdir
+file.setdir "/usr/samples"
+dataPath = findFile("Select .ch8 file to load")
+if not dataPath then exit
+data = file.loadRaw(dataPath)
+file.setdir oldDir
 
-
+text.color = color.gray
+text.row = 2
+print "RETURN: run/pause"
+print "Space or s: step"
+text.color = color.silver
 
 // Machine description
 memory = [0]*4096
@@ -38,18 +46,23 @@ drawMachineState = function
 	for s in returnStack
 		text.column = 10; print hex4(s)
 	end for
+	text.column = 10; print "    "  // (clears last entry after a return)
 	text.row = 10
-	text.column = 30; print "Program code:"
-	for addr in range(PC-6, PC+6, 2)
+	text.column = 24; print "  ADDR  CODE  Meaning"
+	text.column = 24; print "  ----  ----  -------", ""
+	for addr in range(PC-8, PC+8, 2)
 		if addr == PC then line = chars.right + " " else line = "  "
 		if addr >= 0 then
+			line += hex4(addr) + "  "
 			op0 = memory[addr]
 			op1 = memory[addr+1]
 			line = line + hex4(op0*256+op1) + "  " + mnemonic(op0, op1)
-			line = line + " " * (37 - line.len)
-			text.column = 30; print line
+			line = line + " " * (43 - line.len) // (clears to end of line)
+			text.row -= 1
+			text.column = 24; print line, ""
 		end if
 	end for
+	text.row = 25; text.column = 0
 end function
 
 // prepare the tile display
@@ -63,11 +76,8 @@ td.clear 0
 td.scrollX = -300
 td.scrollY = -300
 clearDisplay = function
-	for x in range(63)
-		for y in range(31)
-			td.setCellTint x, y, color.blue
-		end for
-	end for
+	td.setCell range(63), range(31), 0
+	td.setCellTint range(63), range(31), color.blue
 end function
 clearDisplay
 
@@ -135,15 +145,15 @@ simulate = function(stepLimit=null)
 						globals.PC = (opHi % 16) * 256 + opLo
 						continue
 					else  // if (Vx == NN)
-						if V[opHi % 16] == opLo then PC = PC + 2
+						if V[opHi % 16] == opLo then globals.PC += 2
 					end if
 				end if
 			else  // 4-7
 				if hiNibble < 6 then
 					if hiNibble == 4 then // if (Vx != NN)
-						if V[opHi % 16] != opLo then PC = PC + 2
+						if V[opHi % 16] != opLo then globals.PC += 2
 					else  // if (Vx == Vy)
-						if V[opHi % 16] == V[floor(opLo/16)] then PC = PC + 2
+						if V[opHi % 16] == V[floor(opLo/16)] then globals.PC += 2
 					end if
 				else  // 6-7
 					if hiNibble == 6 then // Vx = N
@@ -159,7 +169,7 @@ simulate = function(stepLimit=null)
 					if hiNibble == 8 then  // 
 						qa.abort hex2(opHi) + " not implemented yet"
 					else // 9: if (Vx != Vy)
-						if V[opHi % 16] != V[floor(opLo/16)] then PC = PC + 2
+						if V[opHi % 16] != V[floor(opLo/16)] then globals.PC += 2
 					end if
 				else // 10-11
 					if hiNibble == 10 then // 10: I = NNN
@@ -185,9 +195,9 @@ simulate = function(stepLimit=null)
 						keyChar = "0123qweasdzc4rfv~"[keyNum]
 						isPressed = key.pressed(keyChar)
 						if opLo == 158 then  // skip if key V0 pressed
-							if isPressed then globals.PC = PC + 2
+							if isPressed then globals.PC += 2
 						else if opLo == 161 then  // skip if key V0 not pressed
-							if not isPressed then globals.PC = PC + 2
+							if not isPressed then globals.PC += 2
 						end if
 					else // 15 (various)
 						if opLo == 7 then  // Vx = timer
@@ -217,7 +227,7 @@ simulate = function(stepLimit=null)
 			end if
 			
 		end if
-		globals.PC = PC + 2
+		globals.PC += 2
 	end while
 end function
 
@@ -228,7 +238,8 @@ runMachine = function
 	while key.pressed("return") or key.pressed("space"); end while
 	while true
 		if key.pressed("return") or key.pressed("space") then break
-		simulate 1
+		simulate 1  // use a higher number here for faster simulation
+		drawMachineState
 	end while
 	key.clear
 	drawMachineState
@@ -238,13 +249,14 @@ stepMachine = function
 	text.row=25; text.column = 0; print " STEPPING "
 	text.row = 4
 	simulate 1
+	key.clear
 	drawMachineState
 end function
 
 while true
 	text.row=25; text.column = 0; print " Ready!   "
 	k = key.get
-	if k == "s" then
+	if k == "s" or k == " " then
 		stepMachine
 	else if k.code == 10 then
 		runMachine
